@@ -1,10 +1,12 @@
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Package, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 
 const Index = () => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
@@ -27,7 +29,7 @@ const Index = () => {
         </p>
         <Button
           className="w-full h-14 text-lg font-bold gap-2"
-          onClick={() => navigate("/dashboard")}
+          onClick={() => navigate(isAuthenticated ? "/dashboard" : "/login")}
         >
           Get Started / শুরু করুন
           <ArrowRight className="w-5 h-5" />

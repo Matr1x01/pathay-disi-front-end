@@ -10,6 +10,9 @@ import NotFound from "./pages/NotFound.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import OrderSuccess from "./pages/OrderSuccess.tsx";
 import OrderWizard from "./components/OrderWizard.tsx";
+import Login from "./pages/Login.tsx";
+import Profile from "./pages/Profile.tsx";
+import Register from "./pages/Register.tsx";
 
 const queryClient = new QueryClient();
 
@@ -22,11 +25,21 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
             <Route
               path="/dashboard"
               element={
                 <ProtectedRoute>
                   <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <Profile />
                 </ProtectedRoute>
               }
             />

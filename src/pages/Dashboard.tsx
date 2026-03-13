@@ -1,11 +1,13 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { RECENT_ORDERS } from "@/lib/mockData";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Package, Send, LogOut, MapPin, Clock } from "lucide-react";
+import { Package, Send, LogOut, MapPin, Clock, User } from "lucide-react";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
+import { apiCall } from "@/lib/api";
+import { useEffect, useState } from "react";
 
 const statusColors: Record<string, string> = {
   pending: "bg-warning/10 text-warning border-warning/30",
@@ -16,16 +18,26 @@ const statusColors: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = {
-  pending: "Pending / অপেক্ষমান",
-  picked_up: "Picked Up / সংগৃহীত",
-  in_transit: "In Transit / পথে",
-  delivered: "Delivered / ডেলিভারি",
-  cancelled: "Cancelled / বাতিল",
+  pending: "Pending",
+  picked_up: "Picked Up",
+  in_transit: "In Transit",
+  delivered: "Delivered",
+  cancelled: "Cancelled",
 };
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  const [orders, setOrders] = useState([]);
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      const response = await apiCall("/orders");
+      setOrders(response.data);
+    };
+    fetchOrders();
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -33,21 +45,31 @@ export default function Dashboard() {
       <div className="bg-primary text-primary-foreground px-4 py-5 pb-10 rounded-b-3xl">
         <div className="max-w-lg mx-auto flex items-center justify-between">
           <div>
-            <p className="text-sm opacity-80">Welcome back / স্বাগতম</p>
+            <p className="text-sm opacity-80">Welcome back</p>
             <h1 className="text-xl font-bold">Hi, {user?.name} 👋</h1>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
-            onClick={logout}
-          >
-            <LogOut className="w-5 h-5" />
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
+              onClick={() => navigate("/profile")}
+            >
+              <User className="w-5 h-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
+              onClick={logout}
+            >
+              <LogOut className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="max-w-lg mx-auto px-4 -mt-6">
+      <div className="max-w-lg mx-auto px-4 mt-6">
         {/* CTA */}
         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
           <Button
@@ -55,7 +77,7 @@ export default function Dashboard() {
             className="w-full h-16 text-lg font-bold gap-3 rounded-2xl shadow-lg"
           >
             <Send className="w-6 h-6" />
-            Send New Parcel / নতুন পার্সেল পাঠান
+            Send New Parcel
           </Button>
         </motion.div>
 
@@ -63,11 +85,11 @@ export default function Dashboard() {
         <div className="mt-8">
           <h2 className="font-bold text-base mb-3 flex items-center gap-2">
             <Clock className="w-4 h-4 text-muted-foreground" />
-            Recent Orders / সাম্প্রতিক অর্ডার
+            Recent Orders
           </h2>
 
           <div className="space-y-3">
-            {RECENT_ORDERS.map((order, i) => (
+            {orders?.map((order, i) => (
               <motion.div
                 key={order.id}
                 initial={{ opacity: 0, y: 12 }}

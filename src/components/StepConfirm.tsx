@@ -1,7 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { confirmSchema, ConfirmFormData, PickupFormData, DropoffFormData } from "@/lib/orderSchema";
-import { PACKAGE_TYPES, WEIGHT_OPTIONS, PAYMENT_METHODS, calculatePrice } from "@/lib/mockData";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -11,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Package, Banknote, CreditCard, Send } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { apiCall } from "@/lib/api";
+import { useEffect, useState } from "react";
 
 interface Props {
   data?: Partial<ConfirmFormData>;
@@ -40,10 +41,70 @@ export default function StepConfirm({ data, pickupData, dropoffData, onSubmit, o
     mode: "onChange",
   });
 
+  const [packageTypes, setPackageTypes] = useState<any[]>([]);
+  const [weightOptions, setWeightOptions] = useState<any[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchPackageTypes = async () => {
+      try {
+        const response = await apiCall("/get-package-types");
+        setPackageTypes(response.data);
+      } catch (err) {
+        console.error("Failed to fetch package types:", err);
+      }
+    };
+    fetchPackageTypes();
+
+    const fetchWeightOptions = async () => {
+      try {
+        const response = await apiCall("/get-weight-options");
+        setWeightOptions(response.data);
+      } catch (err) {
+        console.error("Failed to fetch weight options:", err);
+      }
+    };
+    fetchWeightOptions();
+
+    const fetchPaymentMethods = async () => {
+      try {
+        const response = await apiCall("/get-payment-methods");
+        setPaymentMethods(response.data);
+      } catch (err) {
+        console.error("Failed to fetch payment methods:", err);
+      }
+    };
+    fetchPaymentMethods();
+  }, []);
+
   const weight = watch("weight");
   const hasCod = watch("hasCod");
+  const packageType = watch("packageType");
   const codAmount = watch("codAmount") || 0;
-  const price = weight ? calculatePrice(weight, hasCod, codAmount) : null;
+  const [price, setPrice] = useState<{ deliveryFee: number; platformFee: number; total: number } | null>(null);
+
+  useEffect(() => {
+    const fetchPrice = async () => {
+      if (!weight || !packageType) return;
+      try {
+        const response = await apiCall("/orders/estimate-cost", {
+          method: "POST",
+          data: {
+            pickupLat: pickupData.lat,
+            pickupLon: pickupData.lng,
+            dropOffLat: dropoffData.lat,
+            dropOffLon: dropoffData.lng,
+            weight,
+            packageType,
+          },
+        });
+        setPrice(response.data);
+      } catch (err) {
+        console.error("Failed to estimate cost:", err);
+      }
+    };
+    fetchPrice();
+  }, [weight, packageType]);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 animate-fade-in-up">
@@ -70,16 +131,16 @@ export default function StepConfirm({ data, pickupData, dropoffData, onSubmit, o
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label className="text-sm font-semibold">Package Type / প্যাকেজ *</Label>
+          <Label className="text-sm font-semibold">Package Type*</Label>
           <Select onValueChange={(v) => setValue("packageType", v, { shouldValidate: true })} defaultValue={data?.packageType}>
             <SelectTrigger className="mt-1">
-              <SelectValue placeholder="Select / বাছুন" />
+              <SelectValue placeholder="Select" />
             </SelectTrigger>
             <SelectContent>
-              {PACKAGE_TYPES.map((p) => (
-                <SelectItem key={p.value} value={p.value}>
+              {packageTypes.map((p) => (
+                <SelectItem key={p.value} value={String(p.value)}>
                   <Package className="w-3 h-3 inline mr-1" />
-                  {p.label} / {p.labelBn}
+                  {p.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -87,14 +148,14 @@ export default function StepConfirm({ data, pickupData, dropoffData, onSubmit, o
           {errors.packageType && <p className="text-destructive text-xs mt-1">{errors.packageType.message}</p>}
         </div>
         <div>
-          <Label className="text-sm font-semibold">Weight / ওজন *</Label>
+          <Label className="text-sm font-semibold">Weight*</Label>
           <Select onValueChange={(v) => setValue("weight", v, { shouldValidate: true })} defaultValue={data?.weight}>
             <SelectTrigger className="mt-1">
-              <SelectValue placeholder="Select / বাছুন" />
+              <SelectValue placeholder="Select" />
             </SelectTrigger>
             <SelectContent>
-              {WEIGHT_OPTIONS.map((w) => (
-                <SelectItem key={w.value} value={w.value}>{w.label} / {w.labelBn}</SelectItem>
+              {weightOptions.map((w) => (
+                <SelectItem key={w.value} value={String(w.value)}>{w.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -110,7 +171,7 @@ export default function StepConfirm({ data, pickupData, dropoffData, onSubmit, o
         />
         <Label className="text-sm font-medium flex items-center gap-1">
           <Banknote className="w-4 h-4" />
-          Cash on Delivery / ক্যাশ অন ডেলিভারি
+          Cash on Delivery
         </Label>
       </div>
 
@@ -129,7 +190,7 @@ export default function StepConfirm({ data, pickupData, dropoffData, onSubmit, o
       </AnimatePresence>
 
       <div>
-        <Label className="text-sm font-semibold">Special Instructions / বিশেষ নির্দেশনা</Label>
+        <Label className="text-sm font-semibold">Special Instructions</Label>
         <Textarea
           {...register("specialInstructions")}
           placeholder="Any special request / বিশেষ অনুরোধ"
@@ -140,20 +201,19 @@ export default function StepConfirm({ data, pickupData, dropoffData, onSubmit, o
 
       {/* Payment */}
       <div>
-        <Label className="text-sm font-semibold mb-2 block">Payment Method / পেমেন্ট *</Label>
+        <Label className="text-sm font-semibold mb-2 block">Payment Method*</Label>
         <div className="grid grid-cols-2 gap-2">
-          {PAYMENT_METHODS.map((pm) => {
+          {paymentMethods.map((pm) => {
             const selected = watch("paymentMethod") === pm.value;
             return (
               <button
                 type="button"
                 key={pm.value}
                 onClick={() => setValue("paymentMethod", pm.value, { shouldValidate: true })}
-                className={`p-3 rounded-lg border-2 text-sm font-medium transition-all flex items-center gap-2 ${
-                  selected
-                    ? "border-primary bg-emerald-light text-foreground"
-                    : "border-border bg-card text-muted-foreground hover:border-primary/40"
-                }`}
+                className={`p-3 rounded-lg border-2 text-sm font-medium transition-all flex items-center gap-2 ${selected
+                  ? "border-primary bg-emerald-light text-foreground"
+                  : "border-border bg-card text-muted-foreground hover:border-primary/40"
+                  }`}
               >
                 <span>{pm.icon}</span>
                 {pm.label}
@@ -172,21 +232,25 @@ export default function StepConfirm({ data, pickupData, dropoffData, onSubmit, o
               <CardContent className="p-4">
                 <h4 className="font-bold text-sm mb-2 flex items-center gap-2">
                   <CreditCard className="w-4 h-4 text-primary" />
-                  Price Estimate / মূল্য আনুমানিক
+                  Price Estimate
                 </h4>
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Delivery Fee</span>
                     <span className="font-medium">৳{price.deliveryFee}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Platform Fee</span>
+                    <span className="font-medium">৳{price.platformFee}</span>
+                  </div>
                   {hasCod && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">COD Charge</span>
-                      <span className="font-medium">৳{price.codCharge}</span>
+                      <span className="font-medium">৳{codAmount}</span>
                     </div>
                   )}
                   <div className="border-t border-border pt-1 flex justify-between font-bold">
-                    <span>Total / মোট</span>
+                    <span>Total</span>
                     <span className="text-primary text-lg">৳{price.total}</span>
                   </div>
                 </div>
@@ -203,7 +267,7 @@ export default function StepConfirm({ data, pickupData, dropoffData, onSubmit, o
         </Button>
         <Button type="submit" className="flex-[2] h-14 text-base font-bold gap-2" disabled={!isValid}>
           <Send className="w-5 h-5" />
-          Confirm Order / অর্ডার নিশ্চিত করুন
+          Confirm Order
         </Button>
       </div>
     </form>

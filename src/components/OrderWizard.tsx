@@ -7,11 +7,12 @@ import StepConfirm from "@/components/StepConfirm";
 import type { PickupFormData, DropoffFormData, ConfirmFormData } from "@/lib/orderSchema";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { apiCall } from "@/lib/api";
 
 const STEPS = [
-  { label: "Pickup", labelBn: "পিকআপ" },
-  { label: "Drop-off", labelBn: "ড্রপ-অফ" },
-  { label: "Confirm", labelBn: "নিশ্চিত" },
+  { label: "Pickup" },
+  { label: "Drop-off" },
+  { label: "Confirm" },
 ];
 
 export default function OrderWizard() {
@@ -22,19 +23,45 @@ export default function OrderWizard() {
   const [confirmData, setConfirmData] = useState<ConfirmFormData | undefined>();
 
   const handlePickupNext = (data: PickupFormData) => {
+    console.log(data);
     setPickupData(data);
     setStep(1);
   };
 
   const handleDropoffNext = (data: DropoffFormData) => {
+    console.log(data);
     setDropoffData(data);
     setStep(2);
   };
 
-  const handleConfirmSubmit = (data: ConfirmFormData) => {
+  const handleConfirmSubmit = async (data: ConfirmFormData) => {
+    if (!pickupData || !dropoffData) return;
+    console.log(data)
     setConfirmData(data);
-    const orderId = `ORD-${Date.now().toString(36).toUpperCase()}`;
-    navigate(`/dashboard/order-success/${orderId}`);
+
+    const response = await apiCall("/orders", {
+      method: "POST",
+      data: {
+        pickupAddress: pickupData.address,
+        pickupLat: pickupData.lat,
+        pickupLng: pickupData.lng,
+        dropoffAddress: dropoffData.address,
+        dropoffLat: dropoffData.lat,
+        dropoffLng: dropoffData.lng,
+        price: data.codAmount,
+        packageWeightKg: parseFloat(data.weight),
+        packageType: data.packageType,
+        notes: data.specialInstructions,
+        paymentMethod: data.paymentMethod,
+        hasCod: data.hasCod,
+        codAmount: data.codAmount,
+
+      }
+    })
+
+    console.log(response)
+
+    navigate(`/dashboard/order-success/${response.data.orderKey}`);
   };
 
   return (
@@ -44,7 +71,7 @@ export default function OrderWizard() {
         <Button variant="ghost" size="icon" onClick={() => step > 0 ? setStep(step - 1) : navigate("/dashboard")}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <h1 className="font-bold text-lg">Send Parcel / পার্সেল পাঠান</h1>
+        <h1 className="font-bold text-lg">Send Parcel</h1>
       </div>
 
       <div className="max-w-lg mx-auto">

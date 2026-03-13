@@ -1,6 +1,6 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 
-interface User {
+export interface User {
   id: string;
   name: string;
   phone: string;
@@ -9,28 +9,69 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
+  token: string | null;
   isAuthenticated: boolean;
-  login: () => void;
+  login: (token: string, userData: User) => void;
   logout: () => void;
+  updateUser: (userData: User) => void;
+  updateToken: (newToken: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const MOCK_USER: User = {
-  id: "usr_001",
-  name: "Rahim Uddin",
-  phone: "+8801712345678",
-  email: "rahim@example.com",
-};
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(MOCK_USER);
+  const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const login = () => setUser(MOCK_USER);
-  const logout = () => setUser(null);
+  useEffect(() => {
+    // Check localStorage for existing session on mount
+    const storedToken = localStorage.getItem("token");
+    const storedUser = localStorage.getItem("user");
+
+    if (storedToken && storedUser) {
+      try {
+        setToken(storedToken);
+        setUser(JSON.parse(storedUser));
+      } catch (error) {
+        console.error("Failed to parse stored user data:", error);
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+      }
+    }
+    setLoading(false);
+  }, []);
+
+  const login = (newToken: string, userData: User) => {
+    localStorage.setItem("token", newToken);
+    localStorage.setItem("user", JSON.stringify(userData));
+    setToken(newToken);
+    setUser(userData);
+  };
+
+  const logout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setToken(null);
+    setUser(null);
+  };
+
+  const updateToken = (newToken: string) => {
+    localStorage.setItem("token", newToken);
+    setToken(newToken);
+  }
+
+  const updateUser = (userData: User) => {
+    localStorage.setItem("user", JSON.stringify(userData));
+    setUser(userData);
+  }
+
+  if (loading) {
+    return null; // Or a loading spinner
+  }
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout }}>
+    <AuthContext.Provider value={{ user, token, isAuthenticated: !!token, login, logout, updateUser, updateToken }}>
       {children}
     </AuthContext.Provider>
   );
